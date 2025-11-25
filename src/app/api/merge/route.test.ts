@@ -134,3 +134,190 @@ describe("GET /api/merge - Multiple feeds with one returning 403", () => {
     }
   });
 });
+
+describe("GET /api/merge - Title linking and content extraction", () => {
+  it("should wrap title in anchor tag with link in RSS output", async () => {
+    const feed = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Test Feed</title>
+    <description>Test feed description</description>
+    <link>http://localhost:9998</link>
+    <item>
+      <title>Test Article</title>
+      <link>http://localhost:9998/test-article</link>
+      <description>Test content</description>
+      <pubDate>Mon, 28 Oct 2025 10:00:00 GMT</pubDate>
+    </item>
+  </channel>
+</rss>`;
+
+    const server = Bun.serve({
+      port: 9998,
+      fetch(req) {
+        const url = new URL(req.url);
+        if (url.pathname === "/feed.xml") {
+          return new Response(feed, {
+            status: 200,
+            headers: { "content-type": "application/rss+xml" },
+          });
+        }
+        return new Response("Not found", { status: 404 });
+      },
+    });
+
+    try {
+      const baseUrl = new URL("http://localhost:3000/api/merge");
+      baseUrl.searchParams.append("url", "http://localhost:9998/feed.xml");
+
+      const request = new NextRequest(baseUrl);
+      const response = await GET(request);
+      const text = await response.text();
+
+      // Verify title is wrapped in anchor tag with CDATA
+      expect(text).toContain('<title><![CDATA[<a href="http://localhost:9998/test-article">Test Article</a>]]></title>');
+    } finally {
+      server.stop();
+    }
+  });
+
+  it("should extract content after <div class=\"md\"><p> marker", async () => {
+    const feed = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Test Feed</title>
+    <description>Test feed description</description>
+    <link>http://localhost:9997</link>
+    <item>
+      <title>Test Article</title>
+      <link>http://localhost:9997/test-article</link>
+      <content:encoded><![CDATA[<table><tr><td>unwanted</td></tr></table><div class="md"><p>This is the actual content</p></div>]]></content:encoded>
+      <pubDate>Mon, 28 Oct 2025 10:00:00 GMT</pubDate>
+    </item>
+  </channel>
+</rss>`;
+
+    const server = Bun.serve({
+      port: 9997,
+      fetch(req) {
+        const url = new URL(req.url);
+        if (url.pathname === "/feed.xml") {
+          return new Response(feed, {
+            status: 200,
+            headers: { "content-type": "application/rss+xml" },
+          });
+        }
+        return new Response("Not found", { status: 404 });
+      },
+    });
+
+    try {
+      const baseUrl = new URL("http://localhost:3000/api/merge");
+      baseUrl.searchParams.append("url", "http://localhost:9997/feed.xml");
+
+      const request = new NextRequest(baseUrl);
+      const response = await GET(request);
+      const text = await response.text();
+
+      // Verify content extraction - should NOT contain unwanted table
+      expect(text).not.toContain("<table>");
+      expect(text).not.toContain("unwanted");
+      // Should contain the actual content after the marker
+      expect(text).toContain("This is the actual content");
+    } finally {
+      server.stop();
+    }
+  });
+
+  it("should preserve content when marker is not present", async () => {
+    const feed = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Test Feed</title>
+    <description>Test feed description</description>
+    <link>http://localhost:9996</link>
+    <item>
+      <title>Test Article</title>
+      <link>http://localhost:9996/test-article</link>
+      <content:encoded><![CDATA[<p>Regular content without marker</p>]]></content:encoded>
+      <pubDate>Mon, 28 Oct 2025 10:00:00 GMT</pubDate>
+    </item>
+  </channel>
+</rss>`;
+
+    const server = Bun.serve({
+      port: 9996,
+      fetch(req) {
+        const url = new URL(req.url);
+        if (url.pathname === "/feed.xml") {
+          return new Response(feed, {
+            status: 200,
+            headers: { "content-type": "application/rss+xml" },
+          });
+        }
+        return new Response("Not found", { status: 404 });
+      },
+    });
+
+    try {
+      const baseUrl = new URL("http://localhost:3000/api/merge");
+      baseUrl.searchParams.append("url", "http://localhost:9996/feed.xml");
+
+      const request = new NextRequest(baseUrl);
+      const response = await GET(request);
+      const text = await response.text();
+
+      // Verify original content is preserved when marker not found
+      expect(text).toContain("Regular content without marker");
+    } finally {
+      server.stop();
+    }
+  });
+
+  it("should wrap title in anchor tag in JSON Feed output", async () => {
+    const feed = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Test Feed</title>
+    <description>Test feed description</description>
+    <link>http://localhost:9995</link>
+    <item>
+      <title>Test Article</title>
+      <link>http://localhost:9995/test-article</link>
+      <description>Test content</description>
+      <pubDate>Mon, 28 Oct 2025 10:00:00 GMT</pubDate>
+    </item>
+  </channel>
+</rss>`;
+
+    const server = Bun.serve({
+      port: 9995,
+      fetch(req) {
+        const url = new URL(req.url);
+        if (url.pathname === "/feed.xml") {
+          return new Response(feed, {
+            status: 200,
+            headers: { "content-type": "application/rss+xml" },
+          });
+        }
+        return new Response("Not found", { status: 404 });
+      },
+    });
+
+    try {
+      const baseUrl = new URL("http://localhost:3000/api/merge");
+      baseUrl.searchParams.append("url", "http://localhost:9995/feed.xml");
+      baseUrl.searchParams.append("format", "json");
+
+      const request = new NextRequest(baseUrl);
+      const response = await GET(request);
+      const text = await response.text();
+      const json = JSON.parse(text);
+
+      // Verify title is wrapped in anchor tag in JSON output
+      expect(json.items[0].title).toBe('<a href="http://localhost:9995/test-article">Test Article</a>');
+    } finally {
+      server.stop();
+    }
+  });
+});

@@ -50,7 +50,7 @@ async function parseJSONFeed(url: string): Promise<CustomFeed> {
     title: item.title,
     link: item.url || item.external_url,
     pubDate: item.date_published,
-    content: item.content_html,
+    content: item.content_html ? extractContentAfterMarker(item.content_html) : undefined,
     contentSnippet: item.content_text || item.summary,
     creator: item.author?.name,
     isoDate: item.date_published,
@@ -82,6 +82,16 @@ function wrapCDATA(content: string): string {
   return `<![CDATA[${content}]]>`;
 }
 
+// Helper function to extract content after <div class="md"><p> marker
+function extractContentAfterMarker(content: string): string {
+  const marker = '<div class="md"><p>';
+  const index = content.indexOf(marker);
+  if (index !== -1) {
+    return content.substring(index + marker.length);
+  }
+  return content;
+}
+
 // Helper function to generate JSON Feed output
 function generateJSONFeed(mergedFeed: CustomFeed, requestUrl: string): string {
   const jsonFeed: JSONFeed = {
@@ -93,7 +103,7 @@ function generateJSONFeed(mergedFeed: CustomFeed, requestUrl: string): string {
     items: mergedFeed.items.map((item) => ({
       id: item.guid || item.link || crypto.randomUUID(),
       url: item.link,
-      title: item.title,
+      title: item.title && item.link ? `<a href="${item.link}">${item.title}</a>` : item.title,
       content_html: item.content,
       content_text: item.contentSnippet,
       date_published: item.isoDate || item.pubDate,
@@ -175,6 +185,7 @@ export async function GET(request: NextRequest) {
             ...feed,
             items: feed.items.map((item: CustomItem) => ({
               ...item,
+              content: item.content ? extractContentAfterMarker(item.content) : undefined,
               sourceFeedTitle: feed.title,
               sourceFeedUrl: url,
             })),
@@ -261,9 +272,13 @@ export async function GET(request: NextRequest) {
     .map((item) => {
       let itemXml = "    <item>\n";
 
-      // Title
+      // Title - wrap in anchor tag linking to source URL
       if (item.title) {
-        itemXml += `      <title>${escapeXml(item.title)}</title>\n`;
+        if (item.link) {
+          itemXml += `      <title>${wrapCDATA(`<a href="${item.link}">${item.title}</a>`)}</title>\n`;
+        } else {
+          itemXml += `      <title>${escapeXml(item.title)}</title>\n`;
+        }
       } else {
         itemXml += `      <title />\n`;
       }
