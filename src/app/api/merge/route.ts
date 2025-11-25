@@ -30,16 +30,6 @@ function wrapCDATA(content: string): string {
   return `<![CDATA[${content}]]>`;
 }
 
-// Helper function to escape HTML for anchor tag content
-function escapeHtml(unsafe: string): string {
-  return unsafe
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
 // Helper function to extract content after <div class="md"><p> marker
 function extractContentAfterMarker(content: string): string {
   const marker = '<div class="md"><p>';
@@ -113,7 +103,7 @@ function generateJSONFeed(mergedFeed: CustomFeed, requestUrl: string): string {
     items: mergedFeed.items.map((item) => ({
       id: item.guid || item.link || crypto.randomUUID(),
       url: item.link,
-      title: item.title && item.link ? `<a href="${escapeHtml(item.link)}">${escapeHtml(item.title)}</a>` : item.title,
+      title: item.title,
       content_html: item.content,
       content_text: item.contentSnippet,
       date_published: item.isoDate || item.pubDate,
@@ -282,13 +272,9 @@ export async function GET(request: NextRequest) {
     .map((item) => {
       let itemXml = "    <item>\n";
 
-      // Title - wrap in anchor tag linking to source URL
+      // Title
       if (item.title) {
-        if (item.link) {
-          itemXml += `      <title>${wrapCDATA(`<a href="${escapeHtml(item.link)}">${escapeHtml(item.title)}</a>`)}</title>\n`;
-        } else {
-          itemXml += `      <title>${escapeXml(item.title)}</title>\n`;
-        }
+        itemXml += `      <title>${escapeXml(item.title)}</title>\n`;
       } else {
         itemXml += `      <title />\n`;
       }
