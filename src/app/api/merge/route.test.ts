@@ -135,8 +135,8 @@ describe("GET /api/merge - Multiple feeds with one returning 403", () => {
   });
 });
 
-describe("GET /api/merge - Title linking and content extraction", () => {
-  it("should wrap title in anchor tag with link in RSS output", async () => {
+describe("GET /api/merge - Title and content extraction", () => {
+  it("should output plain title without anchor tag in RSS output", async () => {
     const feed = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/">
   <channel>
@@ -174,8 +174,9 @@ describe("GET /api/merge - Title linking and content extraction", () => {
       const response = await GET(request);
       const text = await response.text();
 
-      // Verify title is wrapped in anchor tag with CDATA
-      expect(text).toContain('<title><![CDATA[<a href="http://localhost:9998/test-article">Test Article</a>]]></title>');
+      // Verify title is plain text without anchor tag
+      expect(text).toContain('<title>Test Article</title>');
+      expect(text).not.toContain('<a href="http://localhost:9998/test-article">Test Article</a>');
     } finally {
       server.stop();
     }
@@ -274,7 +275,7 @@ describe("GET /api/merge - Title linking and content extraction", () => {
     }
   });
 
-  it("should wrap title in anchor tag in JSON Feed output", async () => {
+  it("should output plain title without anchor tag in JSON Feed output", async () => {
     const feed = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/">
   <channel>
@@ -314,8 +315,8 @@ describe("GET /api/merge - Title linking and content extraction", () => {
       const text = await response.text();
       const json = JSON.parse(text);
 
-      // Verify title is wrapped in anchor tag in JSON output
-      expect(json.items[0].title).toBe('<a href="http://localhost:9995/test-article">Test Article</a>');
+      // Verify title is plain text without anchor tag in JSON output
+      expect(json.items[0].title).toBe('Test Article');
     } finally {
       server.stop();
     }

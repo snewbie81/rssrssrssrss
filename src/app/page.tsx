@@ -374,14 +374,7 @@ export default function Home() {
                         />
                       )}
                       <h4 className="font-semibold text-gray-900 truncate">
-                        <a
-                          href={item.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="hover:underline text-blue-600"
-                        >
-                          {item.title || "«No Title Defined»"}
-                        </a>
+                        {item.title || "«No Title Defined»"}
                       </h4>
                       <div className="flex-1">
                         {item.content && (
@@ -552,14 +545,7 @@ export default function Home() {
                       />
                     )}
                     <h4 className="font-semibold text-gray-900 truncate">
-                      <a
-                        href={item.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="hover:underline text-blue-600"
-                      >
-                        {item.title || "«No Title Defined»"}
-                      </a>
+                      {item.title || "«No Title Defined»"}
                     </h4>
                     <div className="flex-1">
                       {item.content && (
