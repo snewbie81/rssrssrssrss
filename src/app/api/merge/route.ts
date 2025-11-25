@@ -16,6 +16,40 @@ const parser = new Parser({
 const GENERATOR = "rssrssrssrss";
 const FEED_TITLE = "Merged Feed";
 
+// Helper functions for XML generation
+function escapeXml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function wrapCDATA(content: string): string {
+  return `<![CDATA[${content}]]>`;
+}
+
+// Helper function to escape HTML for anchor tag content
+function escapeHtml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// Helper function to extract content after <div class="md"><p> marker
+function extractContentAfterMarker(content: string): string {
+  const marker = '<div class="md"><p>';
+  const index = content.indexOf(marker);
+  if (index !== -1) {
+    return content.substring(index + marker.length);
+  }
+  return content;
+}
+
 // Helper functions for JSON Feed detection and parsing
 async function isJSONFeed(url: string): Promise<boolean> {
   try {
@@ -68,30 +102,6 @@ async function parseJSONFeed(url: string): Promise<CustomFeed> {
   };
 }
 
-// Helper functions for XML generation
-function escapeXml(unsafe: string): string {
-  return unsafe
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
-}
-
-function wrapCDATA(content: string): string {
-  return `<![CDATA[${content}]]>`;
-}
-
-// Helper function to extract content after <div class="md"><p> marker
-function extractContentAfterMarker(content: string): string {
-  const marker = '<div class="md"><p>';
-  const index = content.indexOf(marker);
-  if (index !== -1) {
-    return content.substring(index + marker.length);
-  }
-  return content;
-}
-
 // Helper function to generate JSON Feed output
 function generateJSONFeed(mergedFeed: CustomFeed, requestUrl: string): string {
   const jsonFeed: JSONFeed = {
@@ -103,7 +113,7 @@ function generateJSONFeed(mergedFeed: CustomFeed, requestUrl: string): string {
     items: mergedFeed.items.map((item) => ({
       id: item.guid || item.link || crypto.randomUUID(),
       url: item.link,
-      title: item.title && item.link ? `<a href="${item.link}">${item.title}</a>` : item.title,
+      title: item.title && item.link ? `<a href="${escapeHtml(item.link)}">${escapeHtml(item.title)}</a>` : item.title,
       content_html: item.content,
       content_text: item.contentSnippet,
       date_published: item.isoDate || item.pubDate,
@@ -275,7 +285,7 @@ export async function GET(request: NextRequest) {
       // Title - wrap in anchor tag linking to source URL
       if (item.title) {
         if (item.link) {
-          itemXml += `      <title>${wrapCDATA(`<a href="${item.link}">${item.title}</a>`)}</title>\n`;
+          itemXml += `      <title>${wrapCDATA(`<a href="${escapeHtml(item.link)}">${escapeHtml(item.title)}</a>`)}</title>\n`;
         } else {
           itemXml += `      <title>${escapeXml(item.title)}</title>\n`;
         }
